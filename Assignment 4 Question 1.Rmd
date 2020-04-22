@@ -1,0 +1,214 @@
+---
+title: "Analysis of Smoking Uptake Age in the United States"
+author: "Fiona McLean"
+bibliography: mybib.bib
+output: pdf_document
+header-includes:
+  - \usepackage[table,xcdraw]{xcolor}
+  - \usepackage{subcaption}
+  - \usepackage{float}
+
+---
+
+\newcommand{\subfloat}[2][need a sub-caption]{\subcaptionbox{#1}{#2} }
+
+```{r setup, include=FALSE, cache=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+
+smokeFile = Pmisc::downloadIfOld("http://pbrown.ca/teaching/appliedstats/data/smoke.RData")
+#Loading required namespace: R.utils
+load(smokeFile)
+smoke = smoke[smoke$Age > 9, ] #getting rid of 9 year olds since data is suspicious
+forInla = smoke[, c("Age", "Age_first_tried_cigt_smkg",
+                    "Sex", "Race", "state", "school", "RuralUrban")]
+forInla = na.omit(forInla)
+forInla$school = factor(forInla$school) #censoring problem since we do not know when they will try smoking
+library("INLA")
+forSurv = data.frame(time = (pmin(forInla$Age_first_tried_cigt_smkg,
+                                  forInla$Age) - 4)/10, event = forInla$Age_first_tried_cigt_smkg <=
+                       forInla$Age) #recode the variables, impossible to start smoking before 4- put time columns in range from 0 to 1
+#if you havent smoked yet, you get your age. If you started smoking, its the age when you first started smoking
+# left censoring
+forSurv[forInla$Age_first_tried_cigt_smkg == 8, "event"] = 2
+cbind(forInla$Age, forInla$Age_first_tried_cigt_smkg, forSurv)[1:10,]
+smokeResponse = inla.surv(forSurv$time, forSurv$event) #event 0,1,2 -> 2 means left censoring, means you could have tried smoking anytime between 4 and 8, event 0 means havent smoked yet, 1 means they did smoke  
+
+```
+
+## Introduction
+
+Cigarette use among adolescents is a major public heath concern. Tobacco product use is started and established primarily during adolescence. Nearly 9 out of 10 cigarette smokers first try cigarette smoking by age 18, and 98% first try smoking by age 26 [@general2014health]. Each day in the U.S. about 2,000 youth under 18 years of age smoke their first cigarette and more than 300 youth under 18 years of age become daily cigarette smokers [@mccance2017national]. In order to understand cigarette use among the youth and to better target prevention efforts, two main research questions were proposed and investigated. It was investigated if geographic variation (between states) in the mean age children first try cigarettes is substantially greater than variation amongst schools. It was also investigated if two non-smoking children have the same probability of trying cigarettes within the next month, irrespective of their ages but provided the known confounders such as sex, rural versus urban location, ethnicity and school and state are identical. The 2014 American National Youth Tobacco Survey, a survey conducted by the CDC, which provides representative data regarding American youth's beliefs and behaviors towards tobacco, was used to investigate the above questions [@CDC].
+
+## Methods
+
+The data set used in the analysis is the 2014 American National Youth Tobacco Survey, a survey conducted by the CDC on young adults in the United States. The survey contains responses from 22,007 young adults on 162 questions regarding their use, perception of, and experience with tobacco.
+
+As an exploratory tool, tables of mean age first tried cigarette and state were created, as well as tables comparing mean age first tried cigarette and school. Data for 9 year olds was removed due to suspicious results concerning the grade level of many 9 year olds respondents.
+
+In order to determine if (1) if geographic variation (between states) in the mean age children first try cigarettes is substantially greater than variation amongst schools and if (2) two non-smoking children have the same probability of trying cigarettes within the next month, irrespective of their ages but provided the known confounders (sex, rural/urban, ethnicity) and random effects (school and state) are identical, a Bayesian mixed censored survival model was constructed. 
+
+Bayesian models allow prior information to be incorporated into a model by specifying a prior and allow for complex models with many random variance factors to be fit, providing advantages over a frequentest model. The fixed effects in the model are the urban vs. rural location of the respondent and an interaction term between sex and race. We include the interaction between sex and race because we believe that men and women cigarette smoking behavior may be different between different races. The random effects are the school and state the respondent is from. School and state are random effects, as it is likely that the age an adolescent first tries cigarettes in different schools and states follow the same distribution. As the model is Bayesian, all factors have a prior distribution. We use a censored model in order to include information about respondents who have yet to try smoking, reducing bias in the model. 
+
+The model is:   
+   
+$Z_{ijk}|(Y_{ijk},A_{ijk},U_{j},V_{k} = min(Y_{ijk},A_{ijk})$  
+$E_{ijk}|(Y_{ijk},A_{ijk},U_{j},V_{k} = I(Y_{ijk} < A_{ijk})$  
+$Y_{ijk} \sim Weibull(\lambda_{ijk}, \alpha)$  
+$-log(\lambda_{ijk}) = \nu_{ijk} = X_{ijk}\beta + U_{j} +V_{k}$  
+$U_{j} \sim N(0, \sigma^2_{U})$  
+$V_{k} \sim N(0, \sigma^2_{V})$, where:    
+  
+- $Y_{ijk}$ is the age individual i in state j in school k smokes for the first time   
+- $A_{ijk}$ is the age of individual i in state j in school k during data collection   
+- $E_{ijk}$ is the indicator of if individual i in state j in school k has ever smoked  
+- $\lambda_{ijk}$ is the scale parameter , $\alpha$ is the shape parameter  
+- $X_{ijk}\beta$ is the matrix of covariates including an intercept  
+- $U_{j}$ is a random effect for state  
+- $V_{k}$ is a random effect for school  
+
+With priors:  
+- $\theta_{U} \sim Exp( \frac{-log(.02)}{log(10)})$  
+- $\theta_{V} \sim Exp( \frac{-log(.05)}{4log(1.5)})$   
+- $\alpha \sim LogNormal(log(1), .7)$  
+- $\beta_0 \sim N(0,\infty)$  
+- $\beta_{i} \sim N(0, 1000)$   
+
+The priors for the fixed effects were chosen to follow a normal distribution with mean 0 and standard deviation 1000 and standard deviation $\infty$ for the intercept, since the prior is uninformative. Leading scientists in the industry determined that the variability of smoking initiation between states is substantial, with some states seeing double or triple the rate of smoking uptake compared to others, however seeing 10 times the smoking uptake is unlikely. Therefore, we put a prior an exponential prior on state standard deviation so that there is only a 2% chance of seeing a standard deviation between states being greater than 10. That is $\mu$= log(10) and $\alpha$ = .02. To determine the the $\lambda$ parameter for the exponential distribution with these traits, the integral $\int_{0}^{log(10)} \lambda e^{-\lambda x} dx = 1-.02$ was evaluated to yield $\frac{-log(.02)}{log(10)}$. Scientists also determined that the worst schools are expected to have at most 50% greater rate than the healthiest schools. Therefore, we put an exponential prior on the standard deviation between schools with $\mu$= 4log(1.5) and $\alpha$ = .05. That is, schools 4 standard deviations away from each other (or the best and worst schools) are expected to have more than a 50% difference in uptake rates 5% of the time. To determine the $\lambda$ parameter for the exponential distribution with these traits, the integral $\int_{0}^{4log(1.5)} \lambda e^{-\lambda x} dx = 1-.05$ was evaluated to yield $\frac{-log(.05)}{4log(1.5)}$. We also expect a flat hazard function, so the prior on the Weibull shape parameter should allow for 1, but is not believed to be 4 or 5. Therefore, we put a lognormal prior on the shape parameter with mean 1 and standard deviation .7. We do so since evaluation of the exponential of the normal distribution with mean log(1) and standard deviation .7 results in a 97.5 quantile value of 3.94. Therefore, it is very unlikely for us to see a shape parameter of 4. 
+
+```{r, echo=FALSE}
+futureTemp <- exp(qnorm(c(0.025, 0.5, 0.975), mean = log(1), sd = .7)) #shape parameter - doesnt allow for more than four and median is 1 - allows alpha to be one and does not allow alpha to be 4
+
+
+futureTemp_table <- matrix(c(round(futureTemp[[1]],2),round(futureTemp[[2]],2),round(futureTemp[[3]],2)),ncol=3,byrow=TRUE)
+colnames(futureTemp_table) <- c("2.5%","50%","97.5% ")
+rownames(futureTemp_table) <- c("Shape Prior")
+futureTemp_table <- as.table(futureTemp_table)
+```
+
+```{r, results='asis', echo=FALSE}
+knitr::kable(futureTemp_table, digits=3, caption = "The table provides the distribution of the exponential of the normal with mean log(1) and standard deviation .7. We use this prior, since the mean for the shape parameter is 1, whcih we expect to see, and the 97.5 quantile is 3.94, making a shape parmater of 4 or 5 highly unlikely.")
+
+```
+
+
+##Results
+
+To gain some intuition as to how the uptake of smoking differs between schools and states, graphs were created to show the average age of smoking uptake in each school and state, as well as the range. 
+
+```{r, echo=FALSE, cache=TRUE, include=FALSE}
+#creating a chart to see the deviation between schools
+library(dplyr)
+library(ggplot2)
+library(magrittr)
+school_sum <- forInla[!is.infinite(forInla$Age_first_tried_cigt_smkg),]
+school_sum <- school_sum %>% 
+  group_by(school) %>%
+  summarize(avg = mean(Age_first_tried_cigt_smkg))
+school_sum <- school_sum[order(school_sum$avg),]
+
+#creating a map of mean age trying cigarettes in each state
+library(openintro)
+new_inla <- forInla[!is.infinite(forInla$Age_first_tried_cigt_smkg),]
+new_inla[,"state"] <- tolower(abbr2state(new_inla$state))
+colnames(new_inla)[colnames(new_inla)=="state"] <- "region"
+
+new_inla <- new_inla %>% 
+  group_by(region) %>%
+  summarize(avg = mean(Age_first_tried_cigt_smkg))
+
+states <- map_data("state")
+
+dt2 <- left_join(states, new_inla, by = "region")
+
+```
+
+```{r, echo=FALSE, fig.cap="The graph above shows the range of mean ages that children start smoking in each school. The mean age ranges from approximately 9 to 15.",fig.align='center', out.width = "85%", fig.pos="H"}
+library(ggplot2)
+ggplot(data=school_sum, aes(x= reorder(school, avg), y= avg))+ geom_point()+ylab("Average Age First Try Smoking")+
+  xlab("School")+ggtitle("Average Age First Start Smoking Per School")+ theme(axis.text.x = element_blank(), axis.ticks = element_blank())
+
+```
+```{r, fig.cap= "The map above shows the mean age of smoking uptake in each state. We can see that the mean age in certain states, such as West Virginia is very low, nearly 10, while other states such as New Jersey have a mean uptake age of nearly 14. However, it appears the vast majority of states have mean uptake age from 12.5 to 13.5. States colored in dark grey do not have data.", echo=FALSE, fig.align='center',fig.pos='H', out.width = "85%", cache=TRUE}
+
+ggplot(data = dt2, aes(x=long, y=lat, group=group))+
+  geom_polygon(aes(fill=avg))+
+  geom_path()+ 
+  scale_fill_gradientn(colours = rev(terrain.colors(5)),na.value = "grey",
+                       guide = guide_colourbar(barwidth = 25, barheight = 0.4,
+                                               #put legend title on top of legend
+                                               title.position = "top")) +
+  # map scale
+  ggsn::scalebar(data = dt2, dist = 500, dist_unit = "km",
+                 border.size = 0.4, st.size = 4,
+                 box.fill = c('black','white'),
+                 transform = TRUE, model = "WGS84") + 
+  # put legend at the bottom, adjust legend title and text font sizes
+  theme(legend.position = "bottom",
+        legend.title=element_text(size=12),  # font size of the legend 
+        legend.text=element_text(size=10),
+        axis.title.x=element_blank(),  # remove axis, title, ticks
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y = element_blank(),
+        axis.line=element_blank())+ggtitle("Map of US States Avg Age Start Smoking")
+
+
+```
+
+It appears that the deviation in uptake age is smaller among states than among schools, although we will need statistical tests to confirm this prediction. 
+
+```{r, cache=TRUE, include=FALSE}
+fitS2 = inla(smokeResponse ~ RuralUrban + Sex * Race +
+               f(school, model = "iid", hyper = list(prec = list(prior = "pc.prec",
+              param = c(4*log(1.5), 0.05)))) + f(state, model = "iid",  #within four standard deviations, within the worst and best school we expect to see at most a 50% difference in smoking
+              hyper = list(prec = list(prior = "pc.prec", param = c(log(10), #exponential dist with median 2.5 - exp(2.5), P(x>10) =.02
+              0.02)))), control.family = list(variant = 1,
+              hyper = list(alpha = list(prior = "normal", param = c(log(1),
+              .7^(-2))))), control.mode = list(theta = c(8,
+              2, 5), restart = TRUE), data = forInla, family = "weibullsurv",
+             verbose = TRUE, control.compute=list(config = TRUE))
+
+```
+
+We now run the Bayesian mixed censored survival model described above to determine if geographic variation (between states) in the mean age children first try cigarettes is substantially greater than variation amongst schools. We also use the model to determine if the hazard is flat, or if two non-smoking children have the same probability of trying cigarettes within the next month, irrespective of their ages. 
+
+
+```{r, echo=FALSE}
+knitr::kable(rbind(exp(-fitS2$summary.fixed[, c("mean", "0.025quant",
+                              "0.975quant")]), Pmisc::priorPostSd(fitS2)$summary[,
+                                                                                c("mean", "0.025quant", "0.975quant")]), digits = 3, caption = "The table below provides the output for Bayesian mixed censored survival model. If the coefficient paramter is greater than 1, then the rate of uptake is slower for the group compared to the baseline of white males. For example, the rate of smoking uptake for rural residents is nearly 10.8% faster than the uptake rate for non rural children. For women, the rate of uptake of smoking is nearly 5.15% slower than for men.")
+
+
+```
+
+We can see that the mean of the posterior distribution for the standard deviation for the log relative rate of school is .151 and the mean for the posterior distribution of the standard deviation of for the log relative rate of state is .058. Notice the C.I do not overlap. Therefore we can conclude that there is higher deviation in the age of smoking uptake between schools than between states. Although we observe a wide CI interval for state, as the the standard deviation could be as low as .025 or as high as .104. However the standard deviation is lower than school, as the .025 quantile for school standard deviation is .127. Therefore, the rate at which children start smoking is between 2.53% and 10.36% faster in some states when compared to other states, while the rate of smoking uptake between schools is between 12.67% and 17.76% faster in some schools compared to others. 
+
+In order to determine if the hazard is flat, or if two non-smoking children have the same probability of trying cigarettes within the next month, irrespective of their ages, we analyze the alpha parameter.  
+```{r, echo=FALSE}
+knitr::kable(fitS2$summary.hyper[1,c(1,2,3,5)], digits = 3, caption = "The CI for the alpha parameter for the weibull distribution is shown below.") #since the mean of the posterior distribution of the alpha paramter is 3, and 1 is not in the credible interval, we do not have a flat hazard, the hazard is increasing. There is no evidence that as age increases, the propesity to smoke is constant  
+```
+
+Since the mean of the posterior distribution of the alpha parameter is 3, and 1 is not in the credible interval, we do not have a flat hazard, the hazard is increasing. There is no evidence that as age increases, the propensity to smoke is constant. 
+
+
+The prior and posterior densities for the standard deviation of the log relative rate of school (left) and state (right) is shown below.
+
+```{r, echo=FALSE, fig.cap="The prior and posterior density for school is shown on the left while the prior and posterior desnity for state is shown on the right. The prior density is the dashed red line while the posterior desnity is the black line." , fig.align='center',fig.pos='H'}
+par(mfrow=c(1,2))
+
+#prior and posterior plots
+sdState = Pmisc::priorPostSd(fitS2)
+do.call(matplot, sdState$school$matplot) # prior and posterior density for school
+
+sdState = Pmisc::priorPostSd(fitS2)
+do.call(matplot, sdState$state$matplot)# prior and posterior density for state
+```
+
+##Conclusion
+
+By analyzing the posterior distribution of the standard deviation of the log relative rate in the uptake of smoking between schools and states, it was determined that school variation in the mean age children first try cigarettes is substantially greater than variation amongst states. As a result, tobacco control programs should target the schools with the earliest smoking ages and not concern themselves with finding particular states where
+smoking is a problem. Since the 95% CI of the posterior distribution of the alpha parameter does not include 1, we can conclude that there is no evidence that the uptake of smoking has a flat hazard function. As the hazard function is increasing, there is evidence to suggest that the older the child, the more likely the child is to try smoking within the next month. 
+
+
+## References
