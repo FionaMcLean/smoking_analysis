@@ -1,0 +1,357 @@
+---
+title: "Tobacco Use in American Youth: An Analysis of the 2014 American National Youth Tobacco Survey "
+author: Fiona McLean
+
+output: pdf_document
+bibliography: mybib.bib
+header-includes:
+  - \usepackage[table,xcdraw]{xcolor}
+  - \usepackage{subcaption}
+  - \usepackage{float}
+---
+\newcommand{\subfloat}[2][need a sub-caption]{\subcaptionbox{#1}{#2} }
+
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.pos = 'H')
+```
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+```
+
+
+```{r, include=FALSE, echo=FALSE}
+smokeUrl = 'http://pbrown.ca/teaching/appliedstats/data/smoke.RData'
+(smokeFile = tempfile(fileext='.RData'))
+download.file(smokeUrl, smokeFile)
+(load(smokeFile))
+
+#' nine year olds look suspicious
+#' get rid of missings and age 9
+smokeSub = smoke[smoke$Age != 9 & !is.na(smoke$Race) &
+                   !is.na(smoke$RuralUrban) & !is.na(smoke$chewing_tobacco_snuff_or) & !is.na(smoke$ever_tobacco_hookah_or_wa), ]
+
+smokeSub$AgeC = smokeSub$Age - 14
+
+percent <- function(x, digits = 2, format = "f", ...) {
+  paste0(formatC(100 * x, format = format, digits = digits, ...), "%")
+}
+```
+
+## Abstract
+
+Tobacco use in American youth is a major health concern. To better understand consumption patterns of tobacco in this population, it was investigated if regular use of chewing tobacco, snuff or dip is more common among Americans of European ancestry than for Hispanic-Americans and African-Americans and if regular use of hookah or water pipes differs between the sexes. Data from the 2014 American National Youth Tobacco Survey was used to help answer these questions. It was discovered that the use of chewing tobacco is significantly higher in Caucasian Americans, compared to African Americans and Hispanic Americans, even once one accounts for the fact that
+white Americans more likely to live in rural areas and chewing tobacco is a rural phenomenon. It was also discovered that there is no statistically significant difference in the use of hookah or water pipes between the sexes, provided age, ethnicity, and other demographic characteristics
+are similar. It is hoped that these conclusions will help to better inform tobacco related decisions involving the youth of America.   
+
+## Introduction
+
+The use of tobacco is the leading cause of preventable disease and death in the United states. Tobacco use and addiction mainly begin in adolescence, making the use of tobacco a major health concern for the youth [@arrazola2015tobacco]. In order to understand tobacco use among the youth, two main research questions were proposed and investigated. It was investigated whether regular use of chewing tobacco, snuff or dip is more common among Americans of European ancestry than for Hispanic-Americans and African-Americans in the United States, for young adults aged 9-19. The difference in the likelihood of having used a hookah or water pipe on at least one occasion between men and women, provided their age, ethnicity, and other demographic characteristics are similar was also considered. The 2014 American National Youth Tobacco Survey, a survey conducted by the CDC, which provides representative data regarding American youth's beliefs and behaviors towards tobacco, was used to investigate the above questions [@CDC].
+
+## Methods
+
+The data set used in the analysis is the 2014 American National Youth Tobacco Survey, a survey conducted by the CDC on young adults in the United States. The survey contains responses from 22,007 young adults on 162 questions regarding their use, perception of, and experience with tobacco.
+
+As an exploratory tool, tables of ages and grades were created, as well as tables comparing race, sex, and urban or rural residence compared to tobacco use. Data for 9 year olds was removed due to suspicious results concerning the grade level of many 9 year olds respondents. The variable age was centered around the median, 14 years old. It is assumed that the responses are independent of one another.  
+
+In order to determine if (1) regular use of chewing tobacco, snuff or dip is more common among Americans of European ancestry than for Hispanic-Americans and African-Americans and if (2) the likelihood of having used a hookah or water pipe differs between sexes, logistic models were built. As a teenager either regularly uses these tobacco products (either chewing tobacco or a hookah) or does not, a logistic regression model is appropriate to answer both questions.  
+
+For research question (1), if regular use of chewing tobacco, snuff or dip is more common among Americans of European ancestry vs. Hispanic and African Americans, European ancestry was set as the baseline for comparison. 
+
+The model was constructed as below:
+
+$Yi \sim Bernoulli(\mu i)$ , where:   
+
+- $Yi$ is the indicator for a respondent using  chewing tobacco, snuff or dip regularly   
+- $ui$ is the probability of a respondent using chewing tobacco, snuff or dip regularly   
+
+The logistic regression model is:
+
+$log\ (\frac{\mu_{i}}{1-\mu_{i}}) = \beta_{0} +\beta_{1} I_{Sex} + \beta_{2}I_{RaceBlack} + \beta_{3}I_{RaceHispanic} + \beta_{4}I_{RaceAsian}+ \beta_{5}I_{RaceNative}+ \beta_{6}I_{RacePacific}+ \beta_{7}I_{Rural}+ \beta_{8}(Age)+ \beta_{9}(Age \times I_{Sex})$
+
+   
+Race, Rural, Sex, Age and the interaction of Age with Sex was included to allow analysis of the differences of chewing tobacco between races, while controlling for these extraneous variables. It was particularly important to control for the urban vs. rural location of a respondent, as chewing tobacco is regarded to be a rural phenomenon. The interaction term between Age and Sex was included, as it is statistically significant and the interaction plot below shows that there is likely an interaction between these terms. Other interaction terms were not included, as they were not as significant in the model and including them did not improve model fit substantially. Therefore this model was chosen as it fits the data well, controls for concerning factors, and is relatively simple.   
+   
+   
+```{r, fig.cap="The interaction plot suggests that there may be an interaction between sex and age, and that including an interaction term in the model is wise.", echo=FALSE, fig.align='center',fig.pos='H', out.width="70%", out.height="70%"}
+interaction.plot(x.factor =smokeSub$Age,    # variable to plot on x-axis
+                 trace.factor = smokeSub$Sex, # variable to specify "traces"; here, lines
+                 response = smokeSub$chewing_tobacco_snuff_or,    # variable to plot on y-axis
+                 fun = mean,  # summary statistic to be plotted for response variable
+                 type = "l",     # type of plot, here "l" for lines
+                 ylab = "Chewing Tobacco Use",
+                 xlab = "Age",
+                 legend = TRUE,
+                 col = c("blue4", "red4"),
+                 main = "Interaction Plot of Sex and Age",
+                 lty = 1,  # line type
+                 lwd = 2,  # line width
+                 trace.label = "Sex",  # label for legend
+                 xpd = FALSE) #,  # 'clip' legend at border
+```
+
+For research question (2) the differences in the likelihood of having used a hookah or water pipe between sexes was investigated. Male sex was set as the baseline for comparison. 
+
+The model was constructed as below:
+
+$Yi \sim Bernoulli(\mu i)$ , where:   
+
+- $Yi$ is the indicator for a respondent using a hookah or water pipe regularly   
+- $ui$ is the probability of a respondent using a hookah or water pipe regularly   
+    
+The logistic regression model is:
+
+$log\ (\frac{\mu_{i}}{1-\mu_{i}}) = \beta_{0} +\beta_{1} I_{Sex} + \beta_{2}I_{RaceBlack} + \beta_{3}I_{RaceHispanic} + \beta_{4}I_{RaceAsian}+ \beta_{5}I_{RaceNative}+ \beta_{6}I_{RacePacific}+ \beta_{7}I_{Rural}+ \beta_{8}(Age)$
+
+Age, Rural, Sex, and Race were included to allow analysis of the differences of hookah or water pipe use between sexes, while controlling for these extraneous variables. Interaction terms were not included in this model, as inclusion of interaction terms did not increase model fit enough to account for the added complexity. 
+
+##Results
+
+### Model 1
+[//]: # data summary tables
+
+```{r, echo=FALSE, warning=FALSE , include=FALSE, cache=TRUE, echo=FALSE}
+
+
+# let's just look at a table of race vs. chewing tobacco
+smokeAggRaceChew = reshape2::dcast(smokeSub, Race ~ chewing_tobacco_snuff_or,length)
+smokeAggRaceChew = na.omit(smokeAggRaceChew)
+smokeAggRaceChew$total = smokeAggRaceChew$'FALSE' + smokeAggRaceChew$'TRUE'
+smokeAggRaceChew$prop = percent(smokeAggRaceChew$'TRUE' / smokeAggRaceChew$total)
+smokeAggTable <- smokeAggRaceChew[,c("Race", "FALSE", "TRUE", "total", "prop")]
+names(smokeAggTable) <-c("Race", "False", "True", "Total", "% Chew Tobacco")
+```
+The percentage of chewing tobacco, snuff, or dip users was compared among the races in question. There is reason to believe that Caucasian Americans may have a higher rate of tobacco use as seen in Table: \ref{tab:perc} by the higher percentage of chewing tobacco use for Caucasians. However, it is important to consider that Caucasian Americans live in rural areas, and chewing tobacco is considered a rural phenomenon. It is also important to ensure that the difference in tobacco use is statistically significant, and not just a result of the sample.   
+
+\begin{table}[H]
+\centering
+
+```{r perc, echo=FALSE, results='asis'}
+knitr::kable(smokeAggTable[c(1:3),], digits=3, format='latex')
+```
+\caption{The percentage of teenagers using chewing tobacco for each race.}
+\label{tab:perc}
+\end{table}
+
+
+The logistic regression model (1) described above suggests **statisticaly significant differences (at the 5% confidence level) in the likelihood of regular use of chewing tobacco, snuff, or dip use when comparing young Americans of European ancestry to those of Hispanic-Americans and African-Americans of the same demographic characteristics** in the United States.
+
+
+```{r, echo=FALSE, warning=FALSE, include=FALSE}
+#odds intercept without b is the odds ratio compared to baseline
+#odds are with the intercept E^B
+smokeFit = glm(chewing_tobacco_snuff_or ~ Race + RuralUrban + AgeC + Sex + AgeC*Sex, 
+               family=binomial(link='logit'), data=smokeSub)
+
+table <- summary(smokeFit)$coef
+conf_int <- confint(smokeFit)
+Odds <- exp(smokeFit$coef)
+table2<- cbind(table, Odds, conf_int)
+smoke_coeffs <- summary(smokeFit)[['coefficients']][c(1:3,7)]
+```
+
+\begin{table}[H]
+\centering
+```{r notstats, echo=FALSE, warning=FALSE,  results='asis'}
+knitr::kable(table2, digits=3, format='latex')
+
+```
+\caption{The table provides the output for the logistic regression model. As the p-value is small and 0 is not in the confidence interval for the races in question, we can conclude that there are statistically significant differences in the likelihood of the use of chewing tobacco in African Americans and Hispanics when compared to white American teenagers.}
+\label{tab:notstats}
+\end{table}
+
+
+The odds for each race of chewing tobacco were calculated. The odds of white teenagers chewing tobacco is higher than the odds of chewing tobacco compared to other races.  
+
+```{r}
+#CONSIDER ADDING CONFIDENCE INTERVAL HERE 
+coefs_2.5 <- conf_int[c(1:3,7), 1]
+coefs_97.5 <- conf_int[c(1:3,7), 2]
+
+#urban odds
+a<- exp(smoke_coeffs[1]) #white urban
+b<- exp(smoke_coeffs[1] + smoke_coeffs[2]) #black urban
+c <- exp(smoke_coeffs[1] + smoke_coeffs[3]) #hispanic urban
+
+urban <- c(a,b,c)
+#urban lower CI
+al<-exp(coefs_2.5[1])
+bl<- exp(coefs_2.5[1] + coefs_2.5[2]) #black urban
+cl <- exp(coefs_2.5[1] + coefs_2.5[3]) #hispanic urban
+urbanl <-c(al,bl,cl)
+#urban upper CI
+au<-exp(coefs_97.5[1])
+bu<- exp(coefs_97.5[1] + coefs_97.5[2]) #black urban
+cu <- exp(coefs_97.5[1] + coefs_97.5[3]) #hispanic urban
+urbanu <- c(au,bu,cu)
+
+#rural odds
+d <- exp(smoke_coeffs[1]+smoke_coeffs[4]) #white rural
+e<- exp(smoke_coeffs[1]+smoke_coeffs[2]+ smoke_coeffs[4]) #black rural
+f<- exp(smoke_coeffs[1]+smoke_coeffs[3]+ smoke_coeffs[4]) #hispanic rural
+
+rural <- c(d,e,f)
+
+#rural lower CI
+dl <- exp(coefs_2.5[1]+coefs_2.5[4]) #white rural
+el<- exp(coefs_2.5[1]+coefs_2.5[2]+ coefs_2.5[4]) #black rural
+fl<- exp(coefs_2.5[1]+coefs_2.5[3]+ coefs_2.5[4]) #hispanic rural
+
+rurall <- c(dl,el,fl)
+#rural odds upper CI
+du <- exp(coefs_97.5[1]+coefs_97.5[4]) #white rural
+eu<- exp(coefs_97.5[1]+coefs_97.5[2]+ coefs_97.5[4]) #black rural
+fu<- exp(coefs_97.5[1]+coefs_97.5[3]+ coefs_97.5[4]) #hispanic rural
+
+ruralu <- c(du,eu,fu)
+
+
+results_odds <- data.frame((matrix(c(urban,urbanl,urbanu,rural,rurall,ruralu),nrow=3,ncol=6)),
+                                                                row.names=c("White Odds","Black Odds","Hispanic Odds"))
+names(results_odds) <- c("Urban Est.", "Urban Lower", "Urban Upper", "Rural Est.", "Rural Lower", "Rural Upper")
+```
+
+\begin{table}[H]
+\centering
+```{r}
+knitr::kable(results_odds, digits=3, format='latex')
+```
+\caption{The table provides the odds of using chewing tobacco in each demographic group of interest. It is clear that the odds for White teenagers is higher than those of Black and Hispanic in both urban and rural settings.}
+\label{tab:odds}
+\end{table}
+
+The odds of chewing tobacco, snuff, or dip for Caucasian youth are `r round(exp(smoke_coeffs[1])/exp(smoke_coeffs[1] + smoke_coeffs[2]),2)` times the odds of African-American youth of a similar demographic. The odds of chewing tobacco, snuff, or dip for Caucasian youth are `r round(exp(smoke_coeffs[1])/exp(smoke_coeffs[1] + smoke_coeffs[3]),2)` times the odds of Hispanic youth of a similar demographic.
+
+
+Table: \ref{tab:probs} shows probability estimates of chewing tobacco, snuff, or dip for each racial group, depending on urban or rural location. Clearly Caucasian's have the highest probability of chewing tobacco, snuff, or dip compared to Hispanic and African American youth. As expected, the probability of chewing tobacco, snuff, or dip is higher in a rural setting for all races compared to an urban setting. 
+
+```{r}
+#CONSIDER ADDING CONFIDENCE INTERVAL HERE 
+# urban probabilities
+
+urbanp <- percent(round(urban/(1 + urban), 3))
+#rural probabilities
+
+ruralp <- percent(round(rural/(1 + c(d,e,f)), 3))
+
+results_prob <- data.frame(t(matrix(c(urbanp,ruralp),nrow=2,ncol=3,byrow=T)),
+                                                                row.names=c("White","Black","Hispanic"))
+names(results_prob) <- c("Urban", "Rural")
+
+```
+
+
+\begin{table}[H]
+\centering
+```{r}
+knitr::kable(results_prob, format='latex', digits = 3)
+```
+\caption{The table provides the probability of tobacco use for each race and urban/rural setting.}
+\label{tab:probs}
+\end{table}
+
+### Model 2 
+
+The percentage of hookah use was compared among the sexes. As seen in Table: \ref{tab:sex} the percentage of females using hookah or pipes is less than 1% smaller than the percentage of males using hookah or pipes. A model is used to determine if the difference in use of hookah and pipes is significant between the two sexes, once other characteristics such as race,age, and rural location are considered.   
+```{r, include=FALSE}
+smokeAggHook = reshape2::dcast(smokeSub, Sex ~ ever_tobacco_hookah_or_wa,length)
+smokeAggHook = na.omit(smokeAggHook)
+smokeAggHook$total = smokeAggHook$'FALSE' + smokeAggHook$'TRUE'
+smokeAggHook$prop = percent(smokeAggHook$'TRUE' / smokeAggHook$total)
+smokeAggTable2 <- smokeAggHook[,c("Sex", "FALSE", "TRUE", "total", "prop")]
+names(smokeAggTable2) <-c("Race", "False", "True", "Total", "% Hookah")
+```
+
+\begin{table}[H]
+\centering
+```{r}
+knitr::kable(smokeAggTable2, digits=3, format='latex')
+```
+\caption{The percentage of teenagers using hookah or pipes for each sex is shown.}
+\label{tab:sex}
+\end{table}
+
+
+The logistic regression model (2) described above suggests **that there does not exist statisticaly significant differences (at the 5% confidence level) in the likelihood of regular use of hookah or pipes when comparing young male Americans to young female Americans of the same demographic characteristics** in the United States.
+
+
+
+```{r, include=FALSE}
+model2 <- glm(ever_tobacco_hookah_or_wa ~ Sex+ RuralUrban + Race + AgeC,
+    family=binomial, data=smokeSub)
+table22 <- summary(model2)$coef
+conf_int2 <- confint(model2)
+Odds <- exp(model2$coef)
+table22<- cbind(table22, Odds, conf_int2)
+
+```
+
+
+\begin{table}[H]
+\centering
+```{r stats, echo=FALSE, warning=FALSE,  results='asis'}
+knitr::kable(table22, digits=3, format='latex')
+```
+\caption{The table provides the output for the logistic regression model. As the p-value for sexF is much greater than our set significance level of .05 and 0 is in the confidence interval, we can conclude that there are not statistically significant differences in the likelihood of the use of hookah and pipes between the two genders.}
+\label{tab:sexlm}
+\end{table}
+
+```{r, include=FALSE}
+smokefitsum <- summary(model2)$coef
+somefit_conf_int <- confint(model2)
+new_tab<- cbind(smokefitsum, somefit_conf_int)
+
+hookah_coeffs <- summary(model2)[['coefficients']][c(1:5,9)]
+confint_coefs_2.5 <- somefit_conf_int[c(1:5,9), 1]
+confint_coefs_97.5 <- somefit_conf_int[c(1:5,9), 2]
+
+#calcilate odds
+#female odds
+female_odds <- exp(hookah_coeffs[1]+hookah_coeffs[2])
+male_odds <- exp(hookah_coeffs[1])
+female_odds_confint_2.5 <- exp(confint_coefs_2.5[1]+confint_coefs_2.5[2])
+female_odds_confint_97.5<- exp(confint_coefs_97.5[1]+confint_coefs_97.5[2])
+male_odds_confint_2.5 <- exp(confint_coefs_2.5[1])
+male_odds_confint_97.5<-exp(confint_coefs_97.5[1])
+```
+
+
+Table: \ref{tab:sexodd} refers the odds of hookah and pipe use for each sex. The odds of using hookah or pipes for men are `r round(exp(hookah_coeffs[1])/exp(hookah_coeffs[1] + hookah_coeffs[2]),2)` times the odds for a woman of similar demographic.
+```{r, include=FALSE}
+#b2 
+#The odds of the female smoking is 1.04 times higher than makes given that they are of the same background 
+#this is insignificant - pvalue 
+
+
+
+
+woman <- c(female_odds,female_odds_confint_2.5,female_odds_confint_97.5)
+man<- c(male_odds,male_odds_confint_2.5,male_odds_confint_97.5)
+
+
+hookah_odds <- data.frame(t(matrix(c(woman,man),nrow=3,ncol=2,byrow=F)), row.names = c("Female Odds", "Male Odds"))
+
+names(hookah_odds) <- c("Estimate", "Lower Bound", "Upper Bound")
+
+```
+
+\begin{table}[H]
+\centering
+```{r}
+knitr::kable(hookah_odds, digits=3, format='latex')
+```
+\caption{The table provides the odds of hookah use for each gender. It is clear that the odds do not differ greatly between the two genders, and that there is significant overlap in the confidence intervals.}
+\label{tab:sexodd}
+\end{table}
+
+
+##Discussion
+
+There exists statistically significant differences in the likelihood of regular use of chewing tobacco, snuff, or dip use when comparing young Americans of European ancestry to those of Hispanic-Americans and African-Americans of the same demographic characteristics. When comparing race and rural or urban location, it was discovered that white rural teenagers are the most likely to chew tobacco, while African American urban teenagers are the least likely. In all races, urban use of chewing tobacco, snuff, or dip was lower than rural use. In order to combat the use of chewing tobacco in the youth, it is recommended that reduction efforts are focused on Americans of European ancestry, as they are more likely to chew tobacco regardless of location.
+
+There does not exist statistically significant differences in the likelihood of regular use of hookah or pipes when comparing young male Americans to young female Americans of the same demographic characteristics. While race age, and urban vs. rural location were found to be significant predictors of hookah or pipe use, sex was not found to be significant. Therefore, it is recommended that efforts to decrease hookah and pipe use should be equally dispersed across both sexes, as women are as likely as men to use hookah or pipes. 
+
+
+## References
